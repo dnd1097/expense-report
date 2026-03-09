@@ -1,70 +1,119 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with this repository.
 
 ## Project Overview
 
-ExpenseTracker is a personal finance management web application built with Next.js 14. It allows users to track expenses, view spending analytics, and export data.
+ExpenseTracker is a Next.js 14 web app for personal finance management. Users can track expenses, view analytics with charts, and export data in multiple formats (CSV, JSON, PDF). Data persists in localStorage.
+
+**Tech Stack**: Next.js 14 (App Router), TypeScript, React 19, Tailwind CSS v4, Recharts, date-fns
 
 ## Commands
 
 ```bash
 npm run dev      # Start development server (http://localhost:3000)
 npm run build    # Build for production
-npm run start    # Start production server
 npm run lint     # Run ESLint
 ```
 
 ## Architecture
 
-### Tech Stack
-- **Framework**: Next.js 14 with App Router
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS v4
-- **Charts**: Recharts
-- **Data**: localStorage (client-side persistence)
-
-### Directory Structure
+### Structure
 ```
 src/
-├── app/                    # Next.js App Router pages
-│   ├── layout.tsx         # Root layout with fonts and metadata
-│   ├── page.tsx           # Main entry point, renders ExpenseApp
-│   └── globals.css        # Global styles and Tailwind imports
+├── app/                    # Next.js pages (layout, page, globals.css)
 ├── components/
-│   ├── ExpenseApp.tsx     # Main app component with state management
-│   ├── ui/                # Reusable UI components (Button, Input, Card, Modal, Select)
-│   ├── expenses/          # Expense-specific components
-│   │   ├── ExpenseForm.tsx    # Add/edit expense form with validation
-│   │   ├── ExpenseList.tsx    # Expense list with loading states
-│   │   ├── ExpenseItem.tsx    # Individual expense row
-│   │   ├── ExpenseFilters.tsx # Search, category, and date filters
-│   │   └── ExportButton.tsx   # CSV export functionality
-│   ├── dashboard/         # Dashboard components
-│   │   ├── SummaryCards.tsx   # Stat cards (total, monthly, average)
-│   │   └── SpendingCharts.tsx # Bar chart and pie chart visualizations
-│   └── layout/
-│       └── Header.tsx     # Navigation header with tab switching
+│   ├── ExpenseApp.tsx     # Main container component
+│   ├── ui/                # Reusable primitives (Button, Input, Card, Modal, Select)
+│   ├── expenses/          # Expense CRUD components
+│   ├── export/            # Data export components
+│   ├── dashboard/         # Analytics/charts
+│   └── layout/            # Navigation
 ├── hooks/
-│   └── useExpenses.ts     # Main hook for expense state management
+│   └── useExpenses.ts     # Central state management hook
 ├── lib/
-│   ├── storage.ts         # localStorage CRUD operations
-│   └── utils.ts           # Formatting, filtering, calculations, CSV export
+│   ├── storage.ts         # localStorage operations
+│   └── utils.ts           # Formatting, filtering, calculations, export
 └── types/
-    └── expense.ts         # TypeScript types, categories, and constants
+    └── expense.ts         # TypeScript types and constants
 ```
 
-### Data Flow
-1. `useExpenses` hook manages all expense state and syncs with localStorage
-2. `ExpenseApp` component coordinates between dashboard/expenses views
-3. Components receive data and callbacks via props
-4. localStorage persists data across sessions
-
 ### Key Patterns
-- **State Management**: Custom React hook (`useExpenses`) centralizes all expense operations
-- **Component Composition**: UI primitives (Button, Input, Card) are composed into feature components
-- **Type Safety**: All data structures defined in `src/types/expense.ts`
-- **Client Components**: Components using hooks/state are marked with `'use client'`
 
-### Expense Categories
-Food, Transportation, Entertainment, Shopping, Bills, Other - defined in `EXPENSE_CATEGORIES` array with corresponding colors and icons.
+**Data Flow**: User action → ExpenseApp → useExpenses hook → setState → localStorage sync → re-render
+
+**State Management**: Custom `useExpenses` hook is the single source of truth. All CRUD operations flow through it. No prop drilling beyond 2 levels.
+
+**Type System**: All types defined in `src/types/expense.ts`. Strict TypeScript mode enabled. Use interfaces, not inline types.
+
+**Client Components**: All components use `'use client'` directive due to interactivity needs.
+
+## Standards & Conventions
+
+### Code Style
+
+- **Components**: PascalCase files, functional components only, destructure props in signature
+- **Hooks**: camelCase with `use` prefix
+- **Utils**: camelCase functions
+- **Constants**: SCREAMING_SNAKE_CASE
+- **Immutability**: Never mutate state directly - always use spread operators or `.map()`/`.filter()`
+- **Imports**: Order by React → third-party → local types → components → utils
+
+### Best Practices
+
+**DO**:
+- Use TypeScript interfaces for all props and data structures
+- Use Tailwind utility classes for styling (no inline styles except dynamic colors)
+- Handle loading and empty states explicitly
+- Use date-fns for date manipulation (not native Date)
+- Memoize expensive calculations with `useMemo`/`useCallback`
+- Validate user input before processing
+
+**DON'T**:
+- Use `any` type - prefer `unknown` or proper types
+- Create CSS modules or inline styles (use Tailwind)
+- Access localStorage directly (use `src/lib/storage.ts`)
+- Mix server/client component logic
+- Skip error handling for user inputs
+- Create abstractions prematurely - keep it simple
+
+### Important Gotchas
+
+1. **localStorage SSR**: Already handled in `storage.ts` with window checks - don't access directly
+2. **Amount storage**: Store as `number`, not `string` - use `parseFloat()` when converting form input
+3. **Date format**: ISO strings (`yyyy-MM-dd`) for consistency
+4. **Dynamic Tailwind**: Can't use `className="text-${color}-500"` - use inline styles for dynamic colors
+5. **Expense categories**: Defined as constants in `types/expense.ts` - update all 3 objects when adding new categories
+
+## Data Model
+
+**Core Types**: `Expense`, `ExpenseCategory`, `ExpenseFilters`, `ExpenseSummary`, `ExportOptions`
+
+**Categories**: Food, Transportation, Entertainment, Shopping, Bills, Other (each has color + icon in `types/expense.ts`)
+
+**Export Formats**: CSV (spreadsheet), JSON (with metadata), PDF (print dialog)
+
+## Common Tasks
+
+**Add expense category**: Update type union, EXPENSE_CATEGORIES array, CATEGORY_COLORS, CATEGORY_ICONS in `types/expense.ts`
+
+**Add export format**: Update ExportFormat type, add export function in `utils.ts`, update ExportModal UI
+
+**Add filter**: Update ExpenseFilters interface, modify filterExpenses function, update ExpenseFilters component
+
+**Add summary stat**: Update ExpenseSummary interface, modify calculateSummary function, display in dashboard
+
+## Performance Notes
+
+- localStorage works well for <1000 expenses
+- Consider virtualization (react-window) for large lists
+- Recharts is largest dependency (~150KB gzipped)
+- All filtering/calculations are client-side
+
+## Future Considerations
+
+When scaling: add backend API, move to PostgreSQL/Prisma, add authentication (NextAuth.js), consider IndexedDB for offline support.
+
+---
+
+**Version**: 2.0 | Keep this file concise and high-level. For implementation details, refer to code comments and TypeScript types.
